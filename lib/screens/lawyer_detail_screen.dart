@@ -9,6 +9,7 @@ import '../utils/authentication.dart';
 
 class LawyerDetailScreen extends StatefulWidget {
   final item;
+
   LawyerDetailScreen({Key? key, required this.item}) : super(key: key);
 
   @override
@@ -19,6 +20,7 @@ class _LawyerDetailScreenState extends State<LawyerDetailScreen> {
   bool isSubmitted = false;
   bool isSuccessfully = false;
   String message = "";
+  var appointments = [];
 
   final db = FirebaseFirestore.instance;
 
@@ -34,10 +36,55 @@ class _LawyerDetailScreenState extends State<LawyerDetailScreen> {
       twilioNumber: '+18573746722' // replace .... with Twilio Number
       );
 
-  String categoryValue = "09:00AM - 10:00AM";
+  // String categoryValue = "09:00AM - 10:00AM";
+  String categoryValue = "";
+
+  List<String> allTimes = [
+    "09:00 AM - 10:00 AM",
+    "10:00 AM - 11:00 AM",
+    "11:00 AM - 12:00 AM",
+    "12:00 AM - 13:00 PM",
+    "02:00 PM - 03:00 PM",
+    "03:00 PM - 04:00 PM"
+  ];
+
+  List<String> _availableTimes = [];
+
+  Map<String, List<String>> appointmentMap = {};
+
+  getLaywerAppointments() async {
+    await db
+        .collection("appointments")
+        .where("lawyer", isEqualTo: widget.item.get('uid'))
+        .get()
+        .then((appoints) {
+      for (int i = 0; i < appoints.docs.length; i++) {
+        // add data to list you want to return.
+        // print(appoints.docs[i].data());
+        print("the extracted appointments");
+        addAppointment(
+            appoints.docs[i].data()['date'], appoints.docs[i].data()['time']);
+        // print(appoints.docs[i].data()['date']);
+        // appointments[appoints.docs[i].data()['date']].add(appoints.docs[i].data()['time']);
+      }
+    });
+
+    print(appointmentMap);
+  }
+
+  void addAppointment(String date, String appointment) {
+    if (appointmentMap.containsKey(date)) {
+      // Date already exists, append the appointment
+      appointmentMap[date]!.add(appointment);
+    } else {
+      // Date doesn't exist, create a new list and add the appointment
+      appointmentMap[date] = [appointment];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    getLaywerAppointments();
     return Scaffold(
       appBar: AppBar(title: Text("Lawyer Details")),
       body: Padding(
@@ -113,6 +160,10 @@ class _LawyerDetailScreenState extends State<LawyerDetailScreen> {
                     if (snap.hasError) {
                       return Text("There was an Error");
                     }
+                    if (snap.hasData) {
+                      print("Data of lawyer");
+                      print(snap.data?.data());
+                    }
                     return ElevatedButton(
                         onPressed: widget.item.get('availability') == 'true' &&
                                 !AuthenticationHelper().isAdmin
@@ -123,60 +174,58 @@ class _LawyerDetailScreenState extends State<LawyerDetailScreen> {
                                         // setState(() {
                                         //   isSubmitted = !isSubmitted;
                                         // });
+
                                         var result = await showDialog<bool>(
                                           context: context,
                                           builder: (BuildContext context) =>
                                               AlertDialog(
                                             title: Text('Request Appointment'),
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                TextFormField(
-                                                    onTap: () =>
-                                                        _showSelectDate(
-                                                            context),
-                                                    keyboardType:
-                                                        TextInputType.none,
-                                                    controller:
-                                                        selectedBookingDateController,
-                                                    decoration: InputDecoration(
-                                                        label: Text("Date"))),
-                                                Container(
-                                                  child: DropdownSearch<String>(
-                                                    items: [
-                                                      "09:00 AM - 10:00 AM",
-                                                      "10:00 AM - 11:00 AM",
-                                                      "11:00 AM - 12:00 AM",
-                                                      "12:00 AM - 13:00 PM",
-                                                      "02:00 PM - 03:00 PM",
-                                                      "03:00 PM - 04:00 PM"
-                                                    ],
+                                            content: StatefulBuilder(  // You need this, notice the parameters below:
+                                                builder: (BuildContext context, StateSetter setState) {
+                                                return Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    TextFormField(
+                                                        onTap: () =>
+                                                            _showSelectDate(
+                                                                context,setState),
+                                                        keyboardType:
+                                                            TextInputType.none,
+                                                        controller:
+                                                            selectedBookingDateController,
+                                                        decoration: InputDecoration(
+                                                            label: Text("Date"))),
+                                                    Container(
+                                                      child: DropdownSearch<String>(
+                                                        items: _availableTimes,
 
-                                                    popupProps: PopupProps.menu(
-                                                      showSelectedItems: true,
-                                                      menuProps: MenuProps(
-                                                        backgroundColor:
-                                                            Colors.white,
+                                                        popupProps: PopupProps.menu(
+                                                          showSelectedItems: true,
+                                                          menuProps: MenuProps(
+                                                            backgroundColor:
+                                                                Colors.white,
+                                                          ),
+                                                        ),
+
+                                                        dropdownDecoratorProps:
+                                                            DropDownDecoratorProps(
+                                                          dropdownSearchDecoration:
+                                                              InputDecoration(
+                                                                  labelText:
+                                                                      "Time"),
+                                                        ),
+                                                        // popupItemDisabled: (String s) => s.startsWith('I'),
+                                                        onChanged: (data) {
+                                                          setState(() {
+                                                            categoryValue = data!;
+                                                          });
+                                                        },
+                                                        selectedItem: categoryValue,
                                                       ),
-                                                    ),
-
-                                                    dropdownDecoratorProps:
-                                                        DropDownDecoratorProps(
-                                                      dropdownSearchDecoration:
-                                                          InputDecoration(
-                                                              labelText:
-                                                                  "Time"),
-                                                    ),
-                                                    // popupItemDisabled: (String s) => s.startsWith('I'),
-                                                    onChanged: (data) {
-                                                      setState(() {
-                                                        categoryValue = data!;
-                                                      });
-                                                    },
-                                                    selectedItem: categoryValue,
-                                                  ),
-                                                )
-                                              ],
+                                                    )
+                                                  ],
+                                                );
+                                              }
                                             ),
                                             actions: <Widget>[
                                               TextButton(
@@ -352,18 +401,25 @@ class _LawyerDetailScreenState extends State<LawyerDetailScreen> {
     );
   }
 
-  Future<void> _showSelectDate(BuildContext context) async {
+  Future<void> _showSelectDate(BuildContext context, stateSetter) async {
     var dateSelect = await showDatePicker(
         context: context,
-        initialDate: DateTime.now(),
-        firstDate: DateTime(2020, 1),
+        initialDate: DateTime.now().add(Duration(days: 1)),
+        // firstDate: DateTime(2020, 1),
+        firstDate: DateTime.now().add(Duration(days: 1)),
         lastDate: DateTime(2040));
     if (dateSelect != null) {
       DateFormat dateFormat = DateFormat("yyyy-MM-dd");
       final selctedFormatedDate = dateFormat.format(dateSelect);
-      setState(() {
-        selectedBookingDateController.text = selctedFormatedDate;
-      });
+      selectedBookingDateController.text = selctedFormatedDate;
+
+      _availableTimes = List.from(allTimes);
+      if (appointmentMap.containsKey(selctedFormatedDate)) {
+        print("remove items");
+        _availableTimes.removeWhere((element) =>
+            appointmentMap[selctedFormatedDate]!.contains(element));
+      }
+      stateSetter(() {});
     }
     if (selectedBookingDateController.text != null) {
       // setState(() {

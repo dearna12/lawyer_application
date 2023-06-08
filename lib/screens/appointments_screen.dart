@@ -57,6 +57,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   child: Text("No data found"),
                 );
               }
+              if(snapshot.hasData){
+                print(snapshot.data);
+              }
 
               return Padding(
                 padding:
